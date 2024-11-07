@@ -1,8 +1,11 @@
+---
 apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
-  name: jax-demo
+  name: ace-jax-demo
 spec:
+  failurePolicy:
+    maxRestarts: 10
   startupPolicy:
     startupPolicyOrder: InOrder
   replicatedJobs:
@@ -14,18 +17,45 @@ spec:
         backoffLimit: 0
         template:
           spec:
+            restartPolicy: Never
+            tolerations:
+            - key: "cohere.com/reserved"
+              operator: "Equal"
+              value: "ace"
+              effect: "NoSchedule"
+            terminationGracePeriodSeconds: 1
+            volumes:
+            - name: jax-code
+              configMap:
+                name: ace-jax-demo
+            - name: storage
+              persistentVolumeClaim:
+                claimName: ace-jax-demo
             containers:
             - name: jax
-              image: docker.io/alexeldeib/jax-demo:dev
+              image: nvcr.io/nvidia/jax:24.10-py3
+              imagePullPolicy: IfNotPresent
+              volumeMounts:
+              - name: jax-code
+                mountPath: /app/do.py
+                subPath: do.py
+              - name: storage
+                mountPath: /storage
+              env:
+              - name: COORDINATOR_ADDR
+                value: "ace-jax-demo-0-0.ace-jax-demo.default.svc.cluster.local:6379"
+              resources:
+                requests:
+                  nvidia.com/gpu: 8
+                limits:
+                  nvidia.com/gpu: 8
               command: 
-                - uv
-                - run
-                - hello.py
-              args:
-                - 1000s
-              readinessProbe:
-                exec:
-                  command:
-                  - echo
-                  - "ready"
-                initialDelaySeconds: 30
+                - bash
+                - -c
+                - |
+                  python /app/do.py | tee -a /storage/log.txt
+                  if [ ${PIPESTATUS[0]} != 0 ]; then
+                    echo "Job failed"
+                    exit 1
+                  fi
+                  sleep infinity
