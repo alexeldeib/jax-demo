@@ -4,17 +4,21 @@ os.environ["JAX_PLATFORM_NAME"] = "cpu"
 
 from typing import *
 
+import numpy as np
 import jax
 from jax import numpy as jnp
 from jax.sharding import Mesh, PartitionSpec, NamedSharding
 
 from flax import nnx
-
 import orbax.checkpoint as ocp
 
 import optax
 
 print(f'You have 8 “fake” JAX devices now: {jax.devices()}')
+
+# create device mesh
+mesh = Mesh(devices=np.array(jax.devices()).reshape(2, 4),
+            axis_names=('data', 'model'))
 
 class DotReluDot(nnx.Module):
   def __init__(self, depth: int, rngs: nnx.Rngs):
@@ -65,20 +69,13 @@ def train_step(model, optimizer, x, y):
 
   return loss
 
-# create device mesh
-mesh = Mesh(devices=jnp.array(jax.devices()).reshape(2, 4), axis_names=('data', 'model'))
-
-# create model for ckpt save/restore
-with mesh:
-    sharded_model = create_sharded_model()
-
-
-data_sharding = NamedSharding(mesh, PartitionSpec('data', None))
-optimizer = nnx.Optimizer(sharded_model, optax.adam(1e-3))
-
 path = "/tmp/relu"
 options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2, create=True)
 mngr = ocp.CheckpointManager(path, options=options)
+
+# create model for ckpt restore
+with mesh:
+    sharded_model = create_sharded_model()
 
 latest_step = 0
 if mngr.latest_step() is not None:
@@ -91,6 +88,11 @@ if mngr.latest_step() is not None:
     )
     sharded_model = nnx.merge(graphdef, loaded_shard)
     print("restored checkpoint")
+
+data_sharding = NamedSharding(mesh, PartitionSpec('data', None))
+
+## training setup
+optimizer = nnx.Optimizer(sharded_model, optax.adam(1e-3))  # reference sharing
 
 # data transfer
 input = jax.device_put(jax.random.normal(jax.random.key(1), (8, 1024)), data_sharding)

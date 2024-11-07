@@ -1,0 +1,31 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-demo
+spec:
+  startupPolicy:
+    startupPolicyOrder: InOrder
+  replicatedJobs:
+  - name: jax
+    template:
+      spec:
+        parallelism: 1
+        completions: 1
+        backoffLimit: 0
+        template:
+          spec:
+            containers:
+            - name: jax
+              image: docker.io/alexeldeib/jax-demo:dev
+              command: 
+                - uv
+                - run
+                - hello.py
+              args:
+                - 1000s
+              readinessProbe:
+                exec:
+                  command:
+                  - echo
+                  - "ready"
+                initialDelaySeconds: 30
