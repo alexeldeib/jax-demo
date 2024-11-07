@@ -4,6 +4,8 @@ kind: JobSet
 metadata:
   name: ace-jax-demo
 spec:
+  network:
+    enableDNSHostnames: true
   failurePolicy:
     maxRestarts: 10
   startupPolicy:
@@ -12,8 +14,8 @@ spec:
   - name: jax
     template:
       spec:
-        parallelism: 1
-        completions: 1
+        parallelism: 2
+        completions: 2
         backoffLimit: 0
         template:
           spec:
@@ -31,6 +33,10 @@ spec:
             - name: storage
               persistentVolumeClaim:
                 claimName: ace-jax-demo
+            - name: memfs
+              emptyDir:
+                medium: Memory
+                sizeLimit: 10Gi
             containers:
             - name: jax
               image: nvcr.io/nvidia/jax:24.10-py3
@@ -41,9 +47,15 @@ spec:
                 subPath: do.py
               - name: storage
                 mountPath: /storage
+              - name: memfs
+                mountPath: /dev/shm
               env:
-              - name: COORDINATOR_ADDR
-                value: "ace-jax-demo-0-0.ace-jax-demo.default.svc.cluster.local:6379"
+              - name: COORDINATOR_ADDRESS
+                value: "ace-jax-demo-jax-0-0.ace-jax-demo.default.svc.cluster.local:8471"
+              - name: NCCL_IB_DISABLE
+                value: "1"
+              ports: 
+              - containerPort: 8471
               resources:
                 requests:
                   nvidia.com/gpu: 8

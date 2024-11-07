@@ -1,6 +1,5 @@
+import os
 import random
-random.seed()
-
 import time
 
 from typing import *
@@ -9,17 +8,9 @@ import numpy as np
 import jax
 from jax import numpy as jnp
 from jax.sharding import Mesh, PartitionSpec, NamedSharding
-
 from flax import nnx
 import orbax.checkpoint as ocp
-
 import optax
-
-# print(f'You have these JAX devices now: {jax.devices()}')
-
-# create device mesh
-mesh = Mesh(devices=np.array(jax.devices()).reshape(2, 4),
-            axis_names=('data', 'model'))
 
 class DotReluDot(nnx.Module):
     def __init__(self, depth: int, rngs: nnx.Rngs):
@@ -70,15 +61,29 @@ def train_step(model, optimizer, x, y):
 
     return loss
 
-path = "/storage/relu"
-options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2, create=True)
-mngr = ocp.CheckpointManager(path, options=options)
 
-# create model for ckpt restore
+# print(f'You have these JAX devices now: {jax.devices()}')
+random.seed(5)
+
+idx = int(os.environ["JOB_COMPLETION_INDEX"])
+jax.distributed.initialize(
+    coordinator_address=os.environ["COORDINATOR_ADDRESS"],
+    num_processes=2,
+    process_id=idx,
+)
+
+# create device mesh
+mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 4),
+            axis_names=('data', 'model'))
+
 with mesh:
     sharded_model = create_sharded_model()
 
+path = "/storage/relu"
+options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2, create=True)
+mngr = ocp.CheckpointManager(path, options=options)
 latest_step = 0
+
 if mngr.latest_step() is not None:
     print(f"found checkpoint at step {mngr.latest_step()}, restoring", flush=True)
     latest_step = mngr.latest_step()

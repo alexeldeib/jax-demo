@@ -4,6 +4,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+trap 'killall stern || true' INT EXIT
+
 cat jobset.yaml
 read ans
 clear
