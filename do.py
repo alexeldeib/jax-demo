@@ -108,15 +108,11 @@ input = jax.device_put(jax.random.normal(jax.random.key(1), (8, 1024)), data_sha
 label = jax.device_put(jax.random.normal(jax.random.key(2), (8, 1024)), data_sharding)
 
 with mesh:
-    while latest_step <= 30:
+    while latest_step <= 10 ** 6:
         loss = train_step(sharded_model, optimizer, input, label)
         print(f"step: {latest_step}  loss: {loss}", flush=True)    # Model (over-)fitting to the labels quickly
         mngr.save(latest_step, args=ocp.args.StandardSave(nnx.state(sharded_model)))
         latest_step += 1
-        if random.randrange(10) == 0:
-            mngr.wait_until_finished()
-            print("simulated failure", flush=True)
-            exit(1)
 
 mngr.wait_until_finished()
 
