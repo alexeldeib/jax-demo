@@ -16,9 +16,9 @@ clear
 kustomize build | kubectl apply -f -
 
 echo "tailing logs"
-echo "stern -l jobset.sigs.k8s.io/jobset-name=ace-jax-demo"
+echo "stern -l jobset.sigs.k8s.io/jobset-name=ace-jax-demo,jobset.sigs.k8s.io/job-index=0,jobset.sigs.k8s.io/replicatedjob-name=jax,batch.kubernetes.io/job-completion-index=0"
 
-stern -l jobset.sigs.k8s.io/jobset-name=ace-jax-demo &
+stern -l jobset.sigs.k8s.io/jobset-name=ace-jax-demo,jobset.sigs.k8s.io/job-index=0,jobset.sigs.k8s.io/replicatedjob-name=jax,batch.kubernetes.io/job-completion-index=0 &
 pid=$!
 
 read ans

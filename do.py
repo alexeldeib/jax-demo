@@ -62,19 +62,22 @@ def train_step(model, optimizer, x, y):
     return loss
 
 
-# print(f'You have these JAX devices now: {jax.devices()}')
-random.seed(5)
+random.seed()
 
 idx = int(os.environ["JOB_COMPLETION_INDEX"])
+num_processes = int(os.environ["JOB_SIZE"])
 jax.distributed.initialize(
     coordinator_address=os.environ["COORDINATOR_ADDRESS"],
-    num_processes=2,
+    num_processes=num_processes,
     process_id=idx,
 )
 
 # create device mesh
-mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 4),
-            axis_names=('data', 'model'))
+mesh_dim = int(num_processes * 8 / 2)
+mesh = Mesh(
+    devices=np.array(jax.devices()).reshape(2, mesh_dim),
+    axis_names=('data', 'model'),
+)
 
 with mesh:
     sharded_model = create_sharded_model()

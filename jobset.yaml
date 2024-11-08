@@ -54,6 +54,8 @@ spec:
                 value: "ace-jax-demo-jax-0-0.ace-jax-demo.default.svc.cluster.local:8471"
               - name: NCCL_IB_DISABLE
                 value: "1"
+              - name: JOB_SIZE
+                value: "2"
               ports: 
               - containerPort: 8471
               resources:
